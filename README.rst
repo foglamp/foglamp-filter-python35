@@ -1,16 +1,16 @@
 =========================================
-FogLAMP "Python27" C++ Filter plugin
+FogLAMP "Python35" C++ Filter plugin
 =========================================
 
-A readings data transformation plugin using Python 2.7
+A readings data transformation plugin using Python 3.5
 embedded interpreter.
 
 NOTE:
-Python2.7 development package is required.
+Python3.5 development package is required.
 
 Build
 -----
-To build FogLAMP "python27" C++ filter plugin:
+To build FogLAMP "python35" C++ filter plugin:
 
 .. code-block:: console
 
