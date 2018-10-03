@@ -1,5 +1,5 @@
 /*
- * FogLAMP "Python 3.r57" filter plugin.
+ * FogLAMP "Python 3.5" filter plugin.
  *
  * Copyright (c) 2018 Dianomic Systems
  *
@@ -173,19 +173,13 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 	// Get current sys.path. borrowed reference
 	PyObject* sysPath = PySys_GetObject((char *)string("path").c_str());
 	// Add FogLAMP python filters path
-	PyObject* pPath = PyBytes_FromString((char *)filtersPath.c_str());
+	PyObject* pPath = PyUnicode_DecodeFSDefault((char *)filtersPath.c_str());
 	PyList_Insert(sysPath, 0, pPath);
 	// Remove temp object
 	Py_CLEAR(pPath);
 
-	// Set scrip tname
-	PyObject* pName = PyBytes_FromString(pythonScript.c_str());
-
 	// Import script as module
-	pModule = PyImport_Import(pName);
-
-	// Delete pName reference
-	Py_CLEAR(pName);
+	pModule = PyImport_ImportModule(pythonScript.c_str());
 
 	// Check whether the Python module has been imported
 	if (!pModule)
@@ -252,7 +246,7 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 	}
 
 	// Add JSON configuration, as string, to "config" key
-	PyObject* pConfigObject = PyBytes_FromString(filterConfiguration.c_str());
+	PyObject* pConfigObject = PyUnicode_DecodeFSDefault(filterConfiguration.c_str());
 	PyDict_SetItemString(pConfig,
 			     "config",
 			     pConfigObject);
@@ -534,7 +528,6 @@ static vector<Reading *>* getFilteredReadings(PyObject* filteredData)
 		// Get 'reading' value: borrowed reference.
 		PyObject* reading = PyDict_GetItemString(element,
 							 "reading");
-
 		// Keys not found or reading is not a dict
 		if (!assetCode ||
 		    !reading ||
@@ -583,13 +576,13 @@ static vector<Reading *>* getFilteredReadings(PyObject* filteredData)
 			// Add / Update the new Reading data			
 			if (newReading == NULL)
 			{
-				newReading = new Reading(PyBytes_AsString(assetCode),
-							 new Datapoint(PyBytes_AsString(dKey),
+				newReading = new Reading(string(PyBytes_AsString(assetCode)),
+							 new Datapoint(string(PyBytes_AsString(dKey)),
 								       *dataPoint));
 			}
 			else
 			{
-				newReading->addDatapoint(new Datapoint(PyBytes_AsString(dKey),
+				newReading->addDatapoint(new Datapoint(string(PyBytes_AsString(dKey)),
 								       *dataPoint));
 			}
 
