@@ -59,7 +59,7 @@ def readings35(readings):
     for elem in readings:
             print("IN=" + str(elem))
             reading = elem['reading']
-            # Apply some changes: add 5000 to all datapoints value
+            # Apply some changes: add 100 to all datapoints value
             for key in reading:
                 newVal = reading[key] + 100
                 reading[key] = newVal
