@@ -18,7 +18,7 @@ set(CMAKE_CXX_FLAGS "-std=c++11 -O3")
 set(PLUGIN_TYPE "filter")
 
 # Add here all needed FogLAMP libraries as list
-set(NEEDED_FOGLAMP_LIBS common-lib plugins-common-lib filters-common-lib)
+set(NEEDED_FOGLAMP_LIBS common-lib plugins-common-lib filters-common-lib services-common-lib)
 
 # Find source files
 file(GLOB SOURCES *.cpp)
