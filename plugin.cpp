@@ -23,8 +23,11 @@
 #include <Python.h>
 
 // Relative path to FOGLAMP_DATA
-#define PYTHON_FILTERS_PATH "/filters"
+#define PYTHON_FILTERS_PATH "/scripts"
 #define FILTER_NAME "python35"
+#define PYTHON_SCRIPT_METHOD_PREFIX "_script_"
+#define PYTHON_SCRIPT_FILENAME_EXTENSION ".py"
+#define SCRIPT_CONFIG_ITEM_NAME "script"
 
 /**
  * The Python 3.5 script module to load is set in
@@ -66,7 +69,7 @@
 				"\"type\" : \"JSON\", " \
 				"\"default\" : {}}, " \
 			"\"script\" : {\"description\" : \"Python 3.5 module to load.\", " \
-				"\"type\": \"string\", " \
+				"\"type\": \"script\", " \
 				"\"default\": \"""\"} }"
 using namespace std;
 
@@ -131,15 +134,30 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 						  outHandle,
 						  output);
 
+	pythonScript = string("");
+
 	// Check whether we have a Python 3.5 script file to import
-	if (handle->getConfig().itemExists("script"))
+	if (handle->getConfig().itemExists(SCRIPT_CONFIG_ITEM_NAME))
 	{
-		pythonScript = handle->getConfig().getValue("script");
+		try
+		{
+			// Get Python script file from "file" attibute of "scipt" item
+			pythonScript = handle->getConfig().getItemAttribute(SCRIPT_CONFIG_ITEM_NAME,
+									    ConfigCategory::FILE_ATTR);
+		        // Just take file name and remove path
+			std::size_t found = pythonScript.find_last_of("/");
+			pythonScript = pythonScript.substr(found + 1);
+		}
+		catch (ConfigItemAttributeNotFound* e)
+		{
+			delete e;
+		}
+		catch (exception* e)
+		{
+			delete e;
+		}
 	}
-	else
-	{
-		pythonScript = string("");
-	}
+
 	if (pythonScript.empty())
 	{
 		// Do nothing
@@ -179,6 +197,25 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 	Py_CLEAR(pPath);
 
 	// Import script as module
+	// NOTE:
+	// Script file name is:
+	// lowercase(categoryName) + _script_ + methodName + ".py"
+
+	// 1) Get methodName
+	std::size_t found = pythonScript.rfind(PYTHON_SCRIPT_METHOD_PREFIX);
+	string filterMethod = pythonScript.substr(found + strlen(PYTHON_SCRIPT_METHOD_PREFIX));
+	// Remove .py from filterMethod
+	found = filterMethod.rfind(PYTHON_SCRIPT_FILENAME_EXTENSION);
+	filterMethod.replace(found,
+			     strlen(PYTHON_SCRIPT_FILENAME_EXTENSION),
+			     "");
+	// Remove .py from pythonScript
+	found = pythonScript.rfind(PYTHON_SCRIPT_FILENAME_EXTENSION);
+	pythonScript.replace(found,
+			     strlen(PYTHON_SCRIPT_FILENAME_EXTENSION),
+			     "");
+
+	// 2) Import Python script
 	pModule = PyImport_ImportModule(pythonScript.c_str());
 
 	// Check whether the Python module has been imported
@@ -190,7 +227,7 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 			logErrorMessage();
 		}
 		Logger::getLogger()->fatal("Filter '%s' (%s), cannot import Python 3.5 script "
-					   "'%s.py' from '%s'",
+					   "'%s' from '%s'",
 					   FILTER_NAME,
 					   handle->getConfig().getName().c_str(),
 					   pythonScript.c_str(),
@@ -200,13 +237,11 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 		return NULL;
 	}
 
-	// NOTE:
-	// Filter method to call is the same as filter name
 	// Fetch filter method in loaded object
-	pFunc = PyObject_GetAttrString(pModule, pythonScript.c_str());
+	pFunc = PyObject_GetAttrString(pModule, filterMethod.c_str());
 
 	if (!PyCallable_Check(pFunc))
-        {
+	{
 		// Failure
 		if (PyErr_Occurred())
 		{
