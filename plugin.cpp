@@ -530,6 +530,10 @@ static PyObject* createReadingsList(const vector<Reading *>& readings)
 		PyObject* assetVal = PyBytes_FromString((*elem)->getAssetName().c_str());
 		PyDict_SetItemString(readingObject, "asset_code", assetVal);
 
+		/**
+		 * Save id, uuid, timestamp and user_timestamp
+		 */
+
 		// Add reading id
 		PyObject* readingId = PyLong_FromUnsignedLong((*elem)->getId());
 		PyDict_SetItemString(readingObject, "id", readingId);
@@ -660,10 +664,15 @@ static vector<Reading *>* getFilteredReadings(PyObject* filteredData)
 								       *dataPoint));
 			}
 
+			/**
+			 * Set id, uuid, ts and user_ts of the original data
+			 */
+
 			// Get 'id' value: borrowed reference.
 			PyObject* id = PyDict_GetItemString(element, "id");
 			if (id && PyLong_Check(id))
 			{
+				// Set id
 				newReading->setId(PyLong_AsUnsignedLong(id));
 			}
 
@@ -671,6 +680,7 @@ static vector<Reading *>* getFilteredReadings(PyObject* filteredData)
 			PyObject* ts = PyDict_GetItemString(element, "ts");
 			if (ts && PyLong_Check(ts))
 			{
+				// Set timestamp
 				newReading->setTimestamp(PyLong_AsUnsignedLong(ts));
 			}
 
@@ -678,6 +688,7 @@ static vector<Reading *>* getFilteredReadings(PyObject* filteredData)
 			PyObject* uts = PyDict_GetItemString(element, "user_ts");
 			if (uts && PyLong_Check(uts))
 			{
+				// Set user timestamp
 				newReading->setUserTimestamp(PyLong_AsUnsignedLong(uts));
 			}
 
@@ -685,6 +696,7 @@ static vector<Reading *>* getFilteredReadings(PyObject* filteredData)
 			PyObject* uuid = PyDict_GetItemString(element, "uuid");
 			if (uuid && PyBytes_Check(uuid))
 			{
+				// Set uuid
 				newReading->setUuid(PyBytes_AsString(uuid));
 			}
 
