@@ -523,21 +523,39 @@ static PyObject* createReadingsList(const vector<Reading *>& readings)
 			Py_CLEAR(value);
 		}
 
+		// Add reading datapoints
+		PyDict_SetItemString(readingObject, "reading", newDataPoints);
 
+		// Add reading asset name
 		PyObject* assetVal = PyBytes_FromString((*elem)->getAssetName().c_str());
-		PyDict_SetItemString(readingObject,
-				     "asset_code",
-				     assetVal);
+		PyDict_SetItemString(readingObject, "asset_code", assetVal);
 
-		PyDict_SetItemString(readingObject,
-				     "reading",
-				     newDataPoints);
+		// Add reading id
+		PyObject* readingId = PyLong_FromUnsignedLong((*elem)->getId());
+		PyDict_SetItemString(readingObject, "id", readingId);
+
+		// Add reading uuid
+		PyObject* assetKey = PyBytes_FromString((*elem)->getUuid().c_str());
+		PyDict_SetItemString(readingObject, "uuid", assetKey);
+
+		// Add reading timestamp
+		PyObject* readingTs = PyLong_FromUnsignedLong((*elem)->getTimestamp());
+		PyDict_SetItemString(readingObject, "ts", readingTs);
+
+		// Add reading user timestamp
+		PyObject* readingUserTs = PyLong_FromUnsignedLong((*elem)->getUserTimestamp());
+		PyDict_SetItemString(readingObject, "user_ts", readingUserTs);
 
 		// Add new object to the list
 		PyList_Append(readingsList, readingObject);
 
-		Py_CLEAR(assetVal);
+		// Remove temp objects
 		Py_CLEAR(newDataPoints);
+		Py_CLEAR(assetVal);
+		Py_CLEAR(readingId);
+		Py_CLEAR(assetKey);
+		Py_CLEAR(readingTs);
+		Py_CLEAR(readingUserTs);
 		Py_CLEAR(readingObject);
 	}
 
@@ -642,12 +660,43 @@ static vector<Reading *>* getFilteredReadings(PyObject* filteredData)
 								       *dataPoint));
 			}
 
+			// Get 'id' value: borrowed reference.
+			PyObject* id = PyDict_GetItemString(element, "id");
+			if (id && PyLong_Check(id))
+			{
+				newReading->setId(PyLong_AsUnsignedLong(id));
+			}
+
+			// Get 'ts' value: borrowed reference.
+			PyObject* ts = PyDict_GetItemString(element, "ts");
+			if (ts && PyLong_Check(ts))
+			{
+				newReading->setTimestamp(PyLong_AsUnsignedLong(ts));
+			}
+
+			// Get 'user_ts' value: borrowed reference.
+			PyObject* uts = PyDict_GetItemString(element, "user_ts");
+			if (uts && PyLong_Check(uts))
+			{
+				newReading->setUserTimestamp(PyLong_AsUnsignedLong(uts));
+			}
+
+			// Get 'uuid' value: borrowed reference.
+			PyObject* uuid = PyDict_GetItemString(element, "uuid");
+			if (uuid && PyBytes_Check(uuid))
+			{
+				newReading->setUuid(PyBytes_AsString(uuid));
+			}
+
 			// Remove temp objects
 			delete dataPoint;
 		}
 
-		// Add the new reading to result vector
-		newReadings->push_back(newReading);
+		if (newReading)
+		{
+			// Add the new reading to result vector
+			newReadings->push_back(newReading);
+		}
 	}
 
 	return newReadings;
