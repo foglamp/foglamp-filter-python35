@@ -67,7 +67,7 @@
 				"\"default\": \"false\" }, " \
 			"\"config\" : {\"description\" : \"Python 3.5 filter configuration.\", " \
 				"\"type\" : \"JSON\", " \
-				"\"default\" : {}}, " \
+				"\"default\" : \"{}\"}, " \
 			"\"script\" : {\"description\" : \"Python 3.5 module to load.\", " \
 				"\"type\": \"script\", " \
 				"\"default\": \"""\"} }"
