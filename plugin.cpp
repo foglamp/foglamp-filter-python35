@@ -60,16 +60,22 @@
 // Filter default configuration
 #define DEFAULT_CONFIG "{\"plugin\" : { \"description\" : \"Python 3.5 filter plugin\", " \
                        		"\"type\" : \"string\", " \
+				"\"readonly\": \"true\", " \
 				"\"default\" : \"" FILTER_NAME "\" }, " \
 			 "\"enable\": {\"description\": \"A switch that can be used to enable or disable execution of " \
 					 "the Python 3.5 filter.\", " \
 				"\"type\": \"boolean\", " \
+				"\"displayName\": \"Enable\", " \
 				"\"default\": \"false\" }, " \
 			"\"config\" : {\"description\" : \"Python 3.5 filter configuration.\", " \
 				"\"type\" : \"JSON\", " \
+				"\"order\": \"1\", " \
+				"\"displayName\" : \"Configuration\", " \
 				"\"default\" : \"{}\"}, " \
 			"\"script\" : {\"description\" : \"Python 3.5 module to load.\", " \
 				"\"type\": \"script\", " \
+				"\"order\": \"2\", " \
+				"\"displayName\" : \"Python script\", " \
 				"\"default\": \"""\"} }"
 using namespace std;
 
