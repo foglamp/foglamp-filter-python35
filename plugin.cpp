@@ -65,7 +65,7 @@
 			 "\"enable\": {\"description\": \"A switch that can be used to enable or disable execution of " \
 					 "the Python 3.5 filter.\", " \
 				"\"type\": \"boolean\", " \
-				"\"displayName\": \"Enable\", " \
+				"\"displayName\": \"Enabled\", " \
 				"\"default\": \"false\" }, " \
 			"\"config\" : {\"description\" : \"Python 3.5 filter configuration.\", " \
 				"\"type\" : \"JSON\", " \
