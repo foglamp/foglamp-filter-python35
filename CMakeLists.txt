@@ -23,27 +23,8 @@ set(NEEDED_FOGLAMP_LIBS common-lib plugins-common-lib filters-common-lib service
 # Find source files
 file(GLOB SOURCES *.cpp)
 
-# Find Python.h 3.5 header file
-set(_PYTHON_3.5_INCLUDES /usr/include/python3.5m /usr/include/python3.5m)
-list(APPEND _PYTHON_3.5_INCLUDES /usr/include/python3.5 /usr/include/python3.5)
-find_path(Python3.5_INCLUDE NAMES Python.h PATHS ${_PYTHON_3.5_INCLUDES})
-if (NOT Python3.5_INCLUDE)
-	message(WARNING
-	" Python 3.5 header file 'Python.h' not found in /usr/include. \n"
-	" Target '${PROJECT_NAME}' filter is not built.")
-	return()
-else()
-	message(STATUS "Found Python 3.5 header file 'Python.h' in " ${Python3.5_INCLUDE})
-endif()
-
-# Find Python 3.5 library
-find_library(FoundPython_3.5 NAMES python3.5m python35m python3.5 python35)
-if (NOT FoundPython_3.5)
-	message(FATAL_ERROR "Python 3.5 library not found.")
-	return()
-else()
-	message(STATUS "Found Python 3.5 library in " ${FoundPython_3.5})
-endif()
+# Find python3.x dev/lib package
+find_package(PythonLibs 3 REQUIRED)
 
 # Find FogLAMP includes and libs, by including FindFogLAMP.cmak file
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
@@ -73,8 +54,8 @@ else()
 	include_directories(${FOGLAMP_INCLUDE_DIRS}/Simple-Web-Server)
 endif()
 
-# Add Python 3.5 header files
-include_directories(${Python3.5_INCLUDE})
+# Add Python 3.x header files
+include_directories(${PYTHON_INCLUDE_DIRS})
 
 # Add FogLAMP lib path
 link_directories(${FOGLAMP_LIB_DIRS})
@@ -87,7 +68,7 @@ target_link_libraries(${PROJECT_NAME} ${NEEDED_FOGLAMP_LIBS})
 
 # Add additional libraries
 # Add Python 3.5 library
-target_link_libraries(${PROJECT_NAME} -lpython3.5m)
+target_link_libraries(${PROJECT_NAME} ${PYTHON_LIBRARIES})
 
 # Set the build version 
 set_target_properties(${PROJECT_NAME} PROPERTIES SOVERSION 1)
