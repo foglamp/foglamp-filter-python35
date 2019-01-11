@@ -49,7 +49,7 @@ class Python35Filter : public FogLampFilter
 		}
 		const std::string&
 			getFiltersPath() const { return m_filtersPath; };
-		bool	getScriptName();
+		bool	setScriptName();
 		bool	configure();
 		bool	reconfigure(const std::string& newConfig);
 		void	lock() { m_configMutex.lock(); };
