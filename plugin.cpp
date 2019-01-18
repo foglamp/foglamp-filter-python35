@@ -152,6 +152,9 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 	// Configure filter
 	if (!pyFilter->configure())
 	{
+		// Cleanup Python 3.5
+		Py_Finalize();
+
 		// This will abort the filter pipeline set up
 		return NULL;
 	}
