@@ -120,16 +120,6 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 							outHandle,
 							output);
 
-	// Check first we have a Python script to load
-	if (!pyFilter->setScriptName())
-	{
-		// Force disable
-		pyFilter->disableFilter();
-
-		// Return filter handle
-		return (PLUGIN_HANDLE)pyFilter;
-	}
-		
 	// Embedded Python 3.5 program name
 	wchar_t *programName = Py_DecodeLocale(config->getName().c_str(), NULL);
         Py_SetProgramName(programName);
@@ -149,9 +139,22 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 	// Remove temp object
 	Py_CLEAR(pPath);
 
+	// Check first we have a Python script to load
+	if (!pyFilter->setScriptName())
+	{
+		// Force disable
+		pyFilter->disableFilter();
+
+		// Return filter handle
+		return (PLUGIN_HANDLE)pyFilter;
+	}
+		
 	// Configure filter
 	if (!pyFilter->configure())
 	{
+		// Cleanup Python 3.5
+		Py_Finalize();
+
 		// This will abort the filter pipeline set up
 		return NULL;
 	}
