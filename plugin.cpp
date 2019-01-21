@@ -23,6 +23,8 @@
 
 #include "python35.h"
 
+bool pythonInitialised = false;
+
 /**
  * The Python 3.5 script module to load is set in
  * 'script' config item and it doesn't need the trailing .py
@@ -125,8 +127,13 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
         Py_SetProgramName(programName);
 	PyMem_RawFree(programName);
 	// Embedded Python 3.5 initialisation
-        Py_Initialize();
-
+	// Check first the interpreter is already set
+	if (!Py_IsInitialized())
+	{
+		Py_Initialize();
+		pythonInitialised = true;
+	}
+	
 	// Pass FogLAMP Data dir
 	pyFilter->setFiltersPath(getDataDir());
 
@@ -153,7 +160,10 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 	if (!pyFilter->configure())
 	{
 		// Cleanup Python 3.5
-		Py_Finalize();
+		if (pythonInitialised)
+		{
+			Py_Finalize();
+		}
 
 		// This will abort the filter pipeline set up
 		return NULL;
@@ -293,7 +303,10 @@ void plugin_shutdown(PLUGIN_HANDLE *handle)
 	Py_CLEAR(filter->m_pFunc);
 
 	// Cleanup Python 3.5
-	Py_Finalize();
+	if (pythonInitialised)
+	{
+		Py_Finalize();
+	}
 
 	// Remove filter object
 	delete filter;
