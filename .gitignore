@@ -1,0 +1,5 @@
+# build and build packages
+build
+
+# Editor
+.idea
