@@ -380,10 +380,9 @@ bool Python35Filter::configure()
 		{
 			this->logErrorMessage();
 		}
-		Logger::getLogger()->fatal("Filter '%s' (%s), cannot import Python 3.5 script "
+		Logger::getLogger()->fatal("Filter '%s', cannot import Python 3.5 script "
 					   "'%s' from '%s'",
 					   this->getName().c_str(),
-					   this->getConfig().getName().c_str(),
 					   m_pythonScript.c_str(),
 					   m_filtersPath.c_str());
 
@@ -402,11 +401,10 @@ bool Python35Filter::configure()
 			this->logErrorMessage();
 		}
 
-		Logger::getLogger()->fatal("Filter %s (%s) error: cannot find Python 3.5 method "
+		Logger::getLogger()->fatal("Filter %s error: cannot find Python 3.5 method "
 					   "'%s' in loaded module '%s.py'",
 					   this->getName().c_str(),
-					   this->getConfig().getName().c_str(),
-					   m_pythonScript.c_str(),
+					   filterMethod.c_str(),
 					   m_pythonScript.c_str());
 		Py_CLEAR(m_pModule);
 		m_pModule = NULL;
