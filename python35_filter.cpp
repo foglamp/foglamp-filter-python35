@@ -337,13 +337,7 @@ bool Python35Filter::reconfigure(const string& newConfig)
 		this->disableFilter();
 		return false;
 	}
-	bool ret = this->configure();
-	if (!ret)
-	{
-		// Force disable
-		this->disableFilter();
-	}
-	return ret;
+	return this->configure();
 }
 
 /**
