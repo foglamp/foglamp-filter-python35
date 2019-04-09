@@ -282,6 +282,10 @@ void Python35Filter::logErrorMessage()
 	//Get error message
 	PyObject *pType, *pValue, *pTraceback;
 	PyErr_Fetch(&pType, &pValue, &pTraceback);
+	PyErr_NormalizeException(&pType, &pValue, &pTraceback);
+
+	PyObject* str_exc_value = PyObject_Repr(pValue);
+	PyObject* pyExcValueStr = PyUnicode_AsEncodedString(str_exc_value, "utf-8", "Error ~");
 
 	// NOTE from :
 	// https://docs.python.org/2/c-api/exceptions.html
@@ -289,16 +293,14 @@ void Python35Filter::logErrorMessage()
 	// The value and traceback object may be NULL
 	// even when the type object is not.	
 	const char* pErrorMessage = pValue ?
-				    PyBytes_AsString(pValue) :
+				    PyBytes_AsString(pyExcValueStr) :
 				    "no error description.";
 
 	Logger::getLogger()->fatal("Filter '%s', script "
 				   "'%s': Error '%s'",
 				   this->getName().c_str(),
 				   m_pythonScript.c_str(),
-				   pErrorMessage ?
-				   pErrorMessage :
-				   "no description");
+				   pErrorMessage);
 
 	// Reset error
 	PyErr_Clear();
@@ -307,6 +309,8 @@ void Python35Filter::logErrorMessage()
 	Py_CLEAR(pType);
 	Py_CLEAR(pValue);
 	Py_CLEAR(pTraceback);
+	Py_CLEAR(str_exc_value);
+	Py_CLEAR(pyExcValueStr);
 }
 
 /**
@@ -380,10 +384,9 @@ bool Python35Filter::configure()
 		{
 			this->logErrorMessage();
 		}
-		Logger::getLogger()->fatal("Filter '%s' (%s), cannot import Python 3.5 script "
+		Logger::getLogger()->fatal("Filter '%s', cannot import Python 3.5 script "
 					   "'%s' from '%s'",
 					   this->getName().c_str(),
-					   this->getConfig().getName().c_str(),
 					   m_pythonScript.c_str(),
 					   m_filtersPath.c_str());
 
@@ -402,11 +405,10 @@ bool Python35Filter::configure()
 			this->logErrorMessage();
 		}
 
-		Logger::getLogger()->fatal("Filter %s (%s) error: cannot find Python 3.5 method "
+		Logger::getLogger()->fatal("Filter %s error: cannot find Python 3.5 method "
 					   "'%s' in loaded module '%s.py'",
 					   this->getName().c_str(),
-					   this->getConfig().getName().c_str(),
-					   m_pythonScript.c_str(),
+					   filterMethod.c_str(),
 					   m_pythonScript.c_str());
 		Py_CLEAR(m_pModule);
 		m_pModule = NULL;
