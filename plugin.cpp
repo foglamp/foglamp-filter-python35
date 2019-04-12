@@ -142,8 +142,12 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 	if (!Py_IsInitialized())
 	{
 		Py_Initialize();
+		PyEval_InitThreads();
+		PyThreadState* save = PyEval_SaveThread(); // release Python GIT
 		pythonInitialised = true;
 	}
+	
+	PyGILState_STATE state = PyGILState_Ensure();
 	
 	// Pass FogLAMP Data dir
 	pyFilter->setFiltersPath(getDataDir());
@@ -163,6 +167,8 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 		// Force disable
 		pyFilter->disableFilter();
 
+		PyGILState_Release(state);
+
 		// Return filter handle
 		return (PLUGIN_HANDLE)info;
 	}
@@ -173,17 +179,21 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 		// Cleanup Python 3.5
 		if (pythonInitialised)
 		{
+			pythonInitialised = false;
 			Py_Finalize();
 		}
+		PyGILState_Release(state);
 
 		// This will abort the filter pipeline set up
 		return NULL;
 	}
 	else
 	{
+		PyGILState_Release(state);
 		// Return filter handle
 		return (PLUGIN_HANDLE)info;
 	}
+	PyGILState_Release(state);
 }
 
 /**
@@ -229,6 +239,8 @@ void plugin_ingest(PLUGIN_HANDLE *handle,
 	 * 4 - Remove old data and pass new data set onwards
 	 */
 
+	PyGILState_STATE state = PyGILState_Ensure();
+
 	// - 1 - Create Python list of dicts as input to the filter
 	PyObject* readingsList = filter->createReadingsList(readings);
 
@@ -245,6 +257,7 @@ void plugin_ingest(PLUGIN_HANDLE *handle,
 
 		// Pass data set to next filter and return
 		filter->m_func(filter->m_data, readingSet);
+		PyGILState_Release(state);
 		return;
 	}
 
@@ -310,6 +323,8 @@ void plugin_ingest(PLUGIN_HANDLE *handle,
 		Py_CLEAR(pReturn);
 	}
 
+	PyGILState_Release(state);
+
 	// - 4 - Pass (new or old) data set to next filter
 	filter->m_func(filter->m_data, finalData);
 }
@@ -324,14 +339,20 @@ void plugin_shutdown(PLUGIN_HANDLE *handle)
 	FILTER_INFO *info = (FILTER_INFO *) handle;
 	Python35Filter* filter = info->handle;
 
-	// Decrement pModule reference count
-	Py_CLEAR(filter->m_pModule);
+	PyGILState_STATE state = PyGILState_Ensure();
+
 	// Decrement pFunc reference count
 	Py_CLEAR(filter->m_pFunc);
+		
+	// Decrement pModule reference count
+	Py_CLEAR(filter->m_pModule);
 
+	//PyGILState_Release(state);
+	
 	// Cleanup Python 3.5
 	if (pythonInitialised)
 	{
+		pythonInitialised = false;
 		Py_Finalize();
 	}
 
@@ -351,7 +372,10 @@ void plugin_reconfigure(PLUGIN_HANDLE *handle, const string& newConfig)
 {
 	FILTER_INFO *info = (FILTER_INFO *) handle;
 	Python35Filter* filter = info->handle;
+
+	PyGILState_STATE state = PyGILState_Ensure();
 	filter->reconfigure(newConfig);
+	PyGILState_Release(state);
 }
 
 // End of extern "C"
