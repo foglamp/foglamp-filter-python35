@@ -142,12 +142,12 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 	if (!Py_IsInitialized())
 	{
 		Py_Initialize();
-		PyEval_InitThreads();
-		PyThreadState* save = PyEval_SaveThread(); // release Python GIT
+		PyEval_InitThreads(); // Initialize and acquire the global interpreter lock (GIL)
+		PyThreadState* save = PyEval_SaveThread(); // release GIL
 		pythonInitialised = true;
 	}
 	
-	PyGILState_STATE state = PyGILState_Ensure();
+	PyGILState_STATE state = PyGILState_Ensure(); // acquire GIL
 	
 	// Pass FogLAMP Data dir
 	pyFilter->setFiltersPath(getDataDir());
@@ -193,7 +193,7 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 		// Return filter handle
 		return (PLUGIN_HANDLE)info;
 	}
-	PyGILState_Release(state);
+	PyGILState_Release(state); // release GIL
 }
 
 /**
