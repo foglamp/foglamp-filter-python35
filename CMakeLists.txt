@@ -35,7 +35,8 @@ set(NEEDED_FOGLAMP_LIBS common-lib plugins-common-lib filters-common-lib service
 file(GLOB SOURCES *.cpp)
 
 # Find python3.x dev/lib package
-find_package(PythonLibs 3 REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(PYTHON REQUIRED python3)
 
 # Find FogLAMP includes and libs, by including FindFogLAMP.cmak file
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
@@ -67,6 +68,8 @@ endif()
 
 # Add Python 3.x header files
 include_directories(${PYTHON_INCLUDE_DIRS})
+
+link_directories(${PYTHON_LIBRARY_DIRS})
 
 # Add FogLAMP lib path
 link_directories(${FOGLAMP_LIB_DIRS})
