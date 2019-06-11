@@ -24,12 +24,31 @@ filter_config = dict()
 
 """
 Set the Filter configuration into filter_config (global variable)
-
-Input data is a dict with 'config' key and JSON string version wit data
-
+Input data is a dict with 'config' key and a dict of configuration values
 JSON string is loaded into a dict, set to global variable filter_config
 
-Return True
+This method is called:
+ - when the plugin is loaded with a valid Python script
+ - when the filter configuration is changed by the user
+
+Configuration example of 'config' item:
+
+  "config": {
+    "displayName": "Configuration",
+    "value": "{\"offset\":5,\"scale\":2}",
+    "order": "1",
+    "type": "JSON",
+    "description": "Python 3.5 filter configuration.",
+    "default": "{}"
+  }
+
+The method argument is {"config": {"offset":5, "scale":2}}
+
+Arguments:
+configuration -- The JSON configuration
+
+Returns:
+True
 """
 def set_filter_config(configuration):
     #print(configuration)
@@ -41,28 +60,40 @@ def set_filter_config(configuration):
 """
 Method for filtering readings data
 
-Input is array of dicts
+This method is called whenever readings data is available:
+the input data is processed and new data is returned
+Input is array of dicts, example
 [
-    {'reading': {'power_set1': '5980'}, 'asset_code': 'lab1'},
-    {'reading': {'power_set1': '211'}, 'asset_code': 'lab1'}
+    {'reading': {'power_set1': '5'}, 'asset_code': 'lab1'},
+    {'reading': {'power_set1': '10'}, 'asset_code': 'lab1'}
 ]
 
-Input data:
-   readings: can be modified, dropped etc
-Output is array of dict
+Output example (using scale = 5 and offset = 10):
+[
+    {'reading': {'power_set1': '35'}, 'asset_code': 'lab1'},
+    {'reading': {'power_set1': '60'}, 'asset_code': 'lab1'}
+]
+
+Note: the method name must be the same as script name.
+
+Arguments:
+readings -- An array of dicts
+
+Returns:
+An array of dicts with modified or dropped readings data
 """
 def scale35(readings):
     # Default config values
     scale = 5
     offset = 10
 
-    # Get configuration
+    # Get configuration, if available
     if ('scale' in filter_config):
         scale = filter_config['scale']
-
     if ('offset' in filter_config):
         offset = filter_config['offset']
 
+    # Process input data
     for elem in readings:
             #print("IN=" + str(elem))
             reading = elem['reading']
