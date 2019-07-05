@@ -12,6 +12,20 @@ __version__ = "${VERSION}"
 
 import sys
 import json
+import logging
+from logging.handlers import SysLogHandler
+import os
+
+# Log to syslog
+handler = SysLogHandler(address='/dev/log')
+formatter = logging.Formatter(fmt='FogLAMP[%(process)d] %(levelname)s: %(name)s: %(message)s')
+handler.setFormatter(formatter)
+# When embedded Python is in use sys.argv is not defined,
+logger = logging.getLogger(os.path.basename(__file__))
+
+# Set mininum log severity
+logger.setLevel(logging.DEBUG)
+logger.addHandler(handler)
 
 """
 Filter configuration set by set_filter_config(config)
@@ -51,7 +65,7 @@ Returns:
 True
 """
 def set_filter_config(configuration):
-    #print(configuration)
+    logger.debug("Config = " + str(configuration)) 
     global filter_config
     filter_config = json.loads(configuration['config'])
 
@@ -95,7 +109,7 @@ def scale35(readings):
 
     # Process input data
     for elem in readings:
-            #print("IN=" + str(elem))
+            logger.debug("IN=" + str(elem))
             reading = elem['reading']
 
             # Apply some changes: multiply datapoint values by scale and add offset
@@ -103,5 +117,5 @@ def scale35(readings):
                 newVal = reading[key] * scale + offset
                 reading[key] = newVal
 
-            #print("OUT=" + str(elem))
+            logger.debug("OUT=" + str(elem))
     return readings
