@@ -22,8 +22,9 @@
 #include <filter.h>
 #include <version.h>
 
-
 #include "python35.h"
+
+static void* libpython_handle = NULL;
 
 bool pythonInitialised = false;
 
@@ -141,6 +142,17 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 	// Check first the interpreter is already set
 	if (!Py_IsInitialized())
 	{
+#ifdef PLUGIN_PYTHON_SHARED_LIBRARY
+		string openLibrary = TO_STRING(PLUGIN_PYTHON_SHARED_LIBRARY);
+		if (!openLibrary.empty())
+		{
+			libpython_handle = dlopen(openLibrary.c_str(),
+						  RTLD_LAZY | RTLD_GLOBAL);
+			Logger::getLogger()->info("Pre-loading of library '%s' "
+						  "is needed on this system",
+						  openLibrary.c_str());
+		}
+#endif
 		Py_Initialize();
 		PyEval_InitThreads(); // Initialize and acquire the global interpreter lock (GIL)
 		PyThreadState* save = PyEval_SaveThread(); // release GIL
@@ -181,6 +193,10 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 		{
 			pythonInitialised = false;
 			Py_Finalize();
+			if (libpython_handle)
+			{
+				dlclose(libpython_handle);
+			}
 		}
 		PyGILState_Release(state);
 
@@ -347,13 +363,15 @@ void plugin_shutdown(PLUGIN_HANDLE *handle)
 	// Decrement pModule reference count
 	Py_CLEAR(filter->m_pModule);
 
-	//PyGILState_Release(state);
-	
 	// Cleanup Python 3.5
 	if (pythonInitialised)
 	{
 		pythonInitialised = false;
 		Py_Finalize();
+		if (libpython_handle)
+		{
+			dlclose(libpython_handle);
+		}
 	}
 
 	// Remove filter object
