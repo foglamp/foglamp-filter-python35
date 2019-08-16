@@ -39,6 +39,7 @@ class Python35Filter : public FogLampFilter
 		{
 			m_pModule = NULL;
 			m_pFunc = NULL;
+			m_init = false;
 		};
 
 		// Set the additional path for Python3.5 Foglamp scripts
@@ -68,6 +69,8 @@ class Python35Filter : public FogLampFilter
 		PyObject*	m_pFunc;
 		// Python 3.5  script name
 		std::string	m_pythonScript;
+		// Python interpreter has been started by this plugin
+		bool		m_init;
 
 	private:
 		// Scripts path
