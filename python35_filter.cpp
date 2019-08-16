@@ -324,7 +324,12 @@ bool Python35Filter::reconfigure(const string& newConfig)
 {
 	lock_guard<mutex> guard(m_configMutex);
 
-	// Cleanup Loaded module first
+	PyGILState_STATE state = PyGILState_Ensure(); // acquire GIL
+
+	// Reload Python module: get a new PyObject
+	PyObject* newModule = PyImport_ReloadModule(m_pModule);
+
+	// Cleanup Loaded module
 	Py_CLEAR(m_pModule);
 	m_pModule = NULL;
 	Py_CLEAR(m_pFunc);
@@ -338,10 +343,19 @@ bool Python35Filter::reconfigure(const string& newConfig)
 	if (!this->setScriptName())
 	{
 		// Force disable
+		PyGILState_Release(state);
 		this->disableFilter();
 		return false;
 	}
-	return this->configure();
+
+	// Set reloaded module
+	m_pModule = newModule;
+
+	bool ret = this->configure();
+
+	PyGILState_Release(state);
+
+	return ret;
 }
 
 /**
@@ -373,8 +387,11 @@ bool Python35Filter::configure()
 			     strlen(PYTHON_SCRIPT_FILENAME_EXTENSION),
 			     "");
 
-	// 2) Import Python script
-	m_pModule = PyImport_ImportModule(m_pythonScript.c_str());
+	// 2) Import Python script if module object is not set
+	if (!m_pModule)
+	{
+		m_pModule = PyImport_ImportModule(m_pythonScript.c_str());
+	}
 
 	// Check whether the Python module has been imported
 	if (!m_pModule)

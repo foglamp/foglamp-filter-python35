@@ -26,8 +26,6 @@
 
 static void* libpython_handle = NULL;
 
-bool pythonInitialised = false;
-
 /**
  * The Python 3.5 script module to load is set in
  * 'script' config item and it doesn't need the trailing .py
@@ -156,11 +154,16 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 		Py_Initialize();
 		PyEval_InitThreads(); // Initialize and acquire the global interpreter lock (GIL)
 		PyThreadState* save = PyEval_SaveThread(); // release GIL
-		pythonInitialised = true;
+		pyFilter->m_init = true;
+
+		Logger::getLogger()->debug("Python interpteter is being initialised by "
+					   "filter (%s), name %s",
+					   FILTER_NAME,
+					   config->getName().c_str());
 	}
-	
+
 	PyGILState_STATE state = PyGILState_Ensure(); // acquire GIL
-	
+
 	// Pass FogLAMP Data dir
 	pyFilter->setFiltersPath(getDataDir());
 
@@ -184,32 +187,31 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 		// Return filter handle
 		return (PLUGIN_HANDLE)info;
 	}
-		
+
 	// Configure filter
-	if (!pyFilter->configure())
+	pyFilter->lock();
+	bool ret = pyFilter->configure();
+	pyFilter->unlock();
+
+	if (!ret)
 	{
 		// Cleanup Python 3.5
-		if (pythonInitialised)
+		if (pyFilter->m_init)
 		{
-			pythonInitialised = false;
+			pyFilter->m_init = false;
 			Py_Finalize();
+
 			if (libpython_handle)
 			{
 				dlclose(libpython_handle);
 			}
 		}
-		PyGILState_Release(state);
+	}
 
-		// This will abort the filter pipeline set up
-		return NULL;
-	}
-	else
-	{
-		PyGILState_Release(state);
-		// Return filter handle
-		return (PLUGIN_HANDLE)info;
-	}
 	PyGILState_Release(state); // release GIL
+
+	// return NULL aborts the filter pipeline set up
+	return ret ? (PLUGIN_HANDLE)info : NULL;
 }
 
 /**
@@ -245,7 +247,9 @@ void plugin_ingest(PLUGIN_HANDLE *handle,
 						      elem != readings.end();
 						      ++elem)
 	{
-		AssetTracker::getAssetTracker()->addAssetTrackingTuple(info->configCatName, (*elem)->getAssetName(), string("Filter"));
+		AssetTracker::getAssetTracker()->addAssetTrackingTuple(info->configCatName,
+									(*elem)->getAssetName(),
+									string("Filter"));
 	}
 	
 	/**
@@ -323,7 +327,9 @@ void plugin_ingest(PLUGIN_HANDLE *handle,
 								      elem != readings2.end();
 								      ++elem)
 			{
-				AssetTracker::getAssetTracker()->addAssetTrackingTuple(info->configCatName, (*elem)->getAssetName(), string("Filter"));
+				AssetTracker::getAssetTracker()->addAssetTrackingTuple(info->configCatName,
+											(*elem)->getAssetName(),
+											string("Filter"));
 			}
 
 			// - Remove newReadings pointer
@@ -364,10 +370,12 @@ void plugin_shutdown(PLUGIN_HANDLE *handle)
 	Py_CLEAR(filter->m_pModule);
 
 	// Cleanup Python 3.5
-	if (pythonInitialised)
+	if (filter->m_init)
 	{
-		pythonInitialised = false;
+		filter->m_init = false;
+
 		Py_Finalize();
+
 		if (libpython_handle)
 		{
 			dlclose(libpython_handle);
@@ -391,9 +399,7 @@ void plugin_reconfigure(PLUGIN_HANDLE *handle, const string& newConfig)
 	FILTER_INFO *info = (FILTER_INFO *) handle;
 	Python35Filter* filter = info->handle;
 
-	PyGILState_STATE state = PyGILState_Ensure();
 	filter->reconfigure(newConfig);
-	PyGILState_Release(state);
 }
 
 // End of extern "C"
