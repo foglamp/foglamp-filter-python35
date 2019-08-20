@@ -64,12 +64,12 @@ static void* libpython_handle = NULL;
 				"\"default\": \"false\" }, " \
 			"\"config\" : {\"description\" : \"Python 3.5 filter configuration.\", " \
 				"\"type\" : \"JSON\", " \
-				"\"order\": \"1\", " \
+				"\"order\": \"2\", " \
 				"\"displayName\" : \"Configuration\", " \
 				"\"default\" : \"{}\"}, " \
 			"\"script\" : {\"description\" : \"Python 3.5 module to load.\", " \
 				"\"type\": \"script\", " \
-				"\"order\": \"2\", " \
+				"\"order\": \"1\", " \
 				"\"displayName\" : \"Python script\", " \
 				"\"default\": \"""\"} }"
 using namespace std;
