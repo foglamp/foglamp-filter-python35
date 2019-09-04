@@ -381,6 +381,11 @@ void plugin_shutdown(PLUGIN_HANDLE *handle)
 			dlclose(libpython_handle);
 		}
 	}
+	else
+	{
+		// Interpreter is still running, just release the GIL
+		PyGILState_Release(state);
+	}
 
 	// Remove filter object
 	delete filter;
