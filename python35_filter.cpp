@@ -553,13 +553,27 @@ bool Python35Filter::setScriptName()
 
 	if (m_pythonScript.empty())
 	{
-		// Do nothing
-		Logger::getLogger()->warn("Filter '%s', "
-					  "called without a Python 3.5 script. "
-					  "Check 'script' item in '%s' configuration. "
-					  "Filter has been disabled.",
-					  this->getName().c_str(),
-					  this->getConfig().getName().c_str());
+		// Do nothing, just log
+		if (m_pModule)
+		{
+			// Python code was successfully loaded, log a warn message
+			Logger::getLogger()->warn("Filter '%s', "
+						  "called without a Python 3.5 script. "
+						  "Check 'script' item in '%s' configuration. "
+						  "Filter has been disabled.",
+						  this->getName().c_str(),
+						  this->getConfig().getName().c_str());
+		}
+		else
+		{
+			// Setting up a filter instance without a script: just a debug log
+			Logger::getLogger()->debug("Filter '%s', "
+						   "called without a Python 3.5 script. "
+						   "Check 'script' item in '%s' configuration. "
+						   "Filter has been disabled.",
+						   this->getName().c_str(),
+						   this->getConfig().getName().c_str());
+		}
 	}
 
 	return !m_pythonScript.empty();
