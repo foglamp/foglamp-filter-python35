@@ -1,5 +1,5 @@
 /*
- * FogLAMP "Python 3.5" filter plugin.
+ * Fledge "Python 3.5" filter plugin.
  *
  * Copyright (c) 2018 Dianomic Systems
  *

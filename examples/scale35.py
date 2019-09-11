@@ -1,5 +1,5 @@
 """
-FogLAMP filtering for readings data
+Fledge filtering for readings data
 using Python 3.5
 
 This filter scales each datapoint value in input readings data
@@ -18,7 +18,7 @@ import os
 
 # Log to syslog
 handler = SysLogHandler(address='/dev/log')
-formatter = logging.Formatter(fmt='FogLAMP[%(process)d] %(levelname)s: %(name)s: %(message)s')
+formatter = logging.Formatter(fmt='Fledge[%(process)d] %(levelname)s: %(name)s: %(message)s')
 handler.setFormatter(formatter)
 # When embedded Python is in use sys.argv is not defined,
 logger = logging.getLogger(os.path.basename(__file__))

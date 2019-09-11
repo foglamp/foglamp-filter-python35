@@ -1,5 +1,5 @@
 /*
- * FogLAMP "Python 3.5" filter plugin.
+ * Fledge "Python 3.5" filter plugin.
  *
  * Copyright (c) 2018 Dianomic Systems
  *
@@ -32,7 +32,7 @@ static void* libpython_handle = NULL;
  *
  * Example:
  * if filename is 'readings_filter.py', just set 'readings_filter'
- * via FogLAMP configuration managewr
+ * via Fledge configuration managewr
  *
  * Note:
  * Python 3.5 filter code needs two methods.
@@ -164,13 +164,13 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 
 	PyGILState_STATE state = PyGILState_Ensure(); // acquire GIL
 
-	// Pass FogLAMP Data dir
+	// Pass Fledge Data dir
 	pyFilter->setFiltersPath(getDataDir());
 
 	// Set Python path for embedded Python 3.5
 	// Get current sys.path. borrowed reference
 	PyObject* sysPath = PySys_GetObject((char *)string("path").c_str());
-	// Add FogLAMP python filters path
+	// Add Fledge python filters path
 	PyObject* pPath = PyUnicode_DecodeFSDefault((char *)pyFilter->getFiltersPath().c_str());
 	PyList_Insert(sysPath, 0, pPath);
 	// Remove temp object
