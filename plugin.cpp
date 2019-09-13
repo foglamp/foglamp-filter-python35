@@ -22,10 +22,9 @@
 #include <filter.h>
 #include <version.h>
 
-
 #include "python35.h"
 
-bool pythonInitialised = false;
+static void* libpython_handle = NULL;
 
 /**
  * The Python 3.5 script module to load is set in
@@ -65,12 +64,12 @@ bool pythonInitialised = false;
 				"\"default\": \"false\" }, " \
 			"\"config\" : {\"description\" : \"Python 3.5 filter configuration.\", " \
 				"\"type\" : \"JSON\", " \
-				"\"order\": \"1\", " \
+				"\"order\": \"2\", " \
 				"\"displayName\" : \"Configuration\", " \
 				"\"default\" : \"{}\"}, " \
 			"\"script\" : {\"description\" : \"Python 3.5 module to load.\", " \
 				"\"type\": \"script\", " \
-				"\"order\": \"2\", " \
+				"\"order\": \"1\", " \
 				"\"displayName\" : \"Python script\", " \
 				"\"default\": \"""\"} }"
 using namespace std;
@@ -141,14 +140,30 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 	// Check first the interpreter is already set
 	if (!Py_IsInitialized())
 	{
+#ifdef PLUGIN_PYTHON_SHARED_LIBRARY
+		string openLibrary = TO_STRING(PLUGIN_PYTHON_SHARED_LIBRARY);
+		if (!openLibrary.empty())
+		{
+			libpython_handle = dlopen(openLibrary.c_str(),
+						  RTLD_LAZY | RTLD_GLOBAL);
+			Logger::getLogger()->info("Pre-loading of library '%s' "
+						  "is needed on this system",
+						  openLibrary.c_str());
+		}
+#endif
 		Py_Initialize();
 		PyEval_InitThreads(); // Initialize and acquire the global interpreter lock (GIL)
 		PyThreadState* save = PyEval_SaveThread(); // release GIL
-		pythonInitialised = true;
+		pyFilter->m_init = true;
+
+		Logger::getLogger()->debug("Python interpteter is being initialised by "
+					   "filter (%s), name %s",
+					   FILTER_NAME,
+					   config->getName().c_str());
 	}
-	
+
 	PyGILState_STATE state = PyGILState_Ensure(); // acquire GIL
-	
+
 	// Pass FogLAMP Data dir
 	pyFilter->setFiltersPath(getDataDir());
 
@@ -172,28 +187,31 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 		// Return filter handle
 		return (PLUGIN_HANDLE)info;
 	}
-		
+
 	// Configure filter
-	if (!pyFilter->configure())
+	pyFilter->lock();
+	bool ret = pyFilter->configure();
+	pyFilter->unlock();
+
+	if (!ret)
 	{
 		// Cleanup Python 3.5
-		if (pythonInitialised)
+		if (pyFilter->m_init)
 		{
-			pythonInitialised = false;
+			pyFilter->m_init = false;
 			Py_Finalize();
-		}
-		PyGILState_Release(state);
 
-		// This will abort the filter pipeline set up
-		return NULL;
+			if (libpython_handle)
+			{
+				dlclose(libpython_handle);
+			}
+		}
 	}
-	else
-	{
-		PyGILState_Release(state);
-		// Return filter handle
-		return (PLUGIN_HANDLE)info;
-	}
+
 	PyGILState_Release(state); // release GIL
+
+	// return NULL aborts the filter pipeline set up
+	return ret ? (PLUGIN_HANDLE)info : NULL;
 }
 
 /**
@@ -229,7 +247,9 @@ void plugin_ingest(PLUGIN_HANDLE *handle,
 						      elem != readings.end();
 						      ++elem)
 	{
-		AssetTracker::getAssetTracker()->addAssetTrackingTuple(info->configCatName, (*elem)->getAssetName(), string("Filter"));
+		AssetTracker::getAssetTracker()->addAssetTrackingTuple(info->configCatName,
+									(*elem)->getAssetName(),
+									string("Filter"));
 	}
 	
 	/**
@@ -307,7 +327,9 @@ void plugin_ingest(PLUGIN_HANDLE *handle,
 								      elem != readings2.end();
 								      ++elem)
 			{
-				AssetTracker::getAssetTracker()->addAssetTrackingTuple(info->configCatName, (*elem)->getAssetName(), string("Filter"));
+				AssetTracker::getAssetTracker()->addAssetTrackingTuple(info->configCatName,
+											(*elem)->getAssetName(),
+											string("Filter"));
 			}
 
 			// - Remove newReadings pointer
@@ -347,13 +369,22 @@ void plugin_shutdown(PLUGIN_HANDLE *handle)
 	// Decrement pModule reference count
 	Py_CLEAR(filter->m_pModule);
 
-	//PyGILState_Release(state);
-	
 	// Cleanup Python 3.5
-	if (pythonInitialised)
+	if (filter->m_init)
 	{
-		pythonInitialised = false;
+		filter->m_init = false;
+
 		Py_Finalize();
+
+		if (libpython_handle)
+		{
+			dlclose(libpython_handle);
+		}
+	}
+	else
+	{
+		// Interpreter is still running, just release the GIL
+		PyGILState_Release(state);
 	}
 
 	// Remove filter object
@@ -373,9 +404,7 @@ void plugin_reconfigure(PLUGIN_HANDLE *handle, const string& newConfig)
 	FILTER_INFO *info = (FILTER_INFO *) handle;
 	Python35Filter* filter = info->handle;
 
-	PyGILState_STATE state = PyGILState_Ensure();
 	filter->reconfigure(newConfig);
-	PyGILState_Release(state);
 }
 
 // End of extern "C"

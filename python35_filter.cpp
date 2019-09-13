@@ -322,27 +322,132 @@ void Python35Filter::logErrorMessage()
  */
 bool Python35Filter::reconfigure(const string& newConfig)
 {
+	Logger::getLogger()->debug("%s filter 'plugin_reconfigure' called = %s",
+				   this->getName().c_str(),
+				   newConfig.c_str());
+
+	ConfigCategory category("new", newConfig);
+	string newScript;
+
+	// Configuration change is protected by a lock
 	lock_guard<mutex> guard(m_configMutex);
 
-	// Cleanup Loaded module first
-	Py_CLEAR(m_pModule);
-	m_pModule = NULL;
-	Py_CLEAR(m_pFunc);
-	m_pFunc = NULL;
-	m_pythonScript.clear();
+	PyGILState_STATE state = PyGILState_Ensure(); // acquire GIL
 
-	// Apply new configuration
-	this->setConfig(newConfig);
-
-	// Check script name
-	if (!this->setScriptName())
+	// Get Python script file from "file" attibute of "scipt" item
+	if (category.itemExists(SCRIPT_CONFIG_ITEM_NAME))
 	{
+		try
+		{
+			// Get Python script file from "file" attibute of "scipt" item
+			newScript = category.getItemAttribute(SCRIPT_CONFIG_ITEM_NAME,
+								   ConfigCategory::FILE_ATTR);
+
+			// Just take file name and remove path
+			std::size_t found = newScript.find_last_of("/");
+			if (found != std::string::npos)
+			{
+				newScript = newScript.substr(found + 1);
+
+				// Remove .py from pythonScript
+				found = newScript.rfind(PYTHON_SCRIPT_FILENAME_EXTENSION);
+				if (found != std::string::npos)
+				{
+					newScript.replace(found, strlen(PYTHON_SCRIPT_FILENAME_EXTENSION), "");
+				}
+			}
+		}
+		catch (ConfigItemAttributeNotFound* e)
+		{
+			delete e;
+		}
+		catch (exception* e)
+		{
+			delete e;
+		}
+	}
+
+	if (newScript.empty())
+	{
+		Logger::getLogger()->warn("Filter '%s', "
+					  "called without a Python 3.5 script. "
+					  "Check 'script' item in '%s' configuration. "
+					  "Filter has been disabled.",
+					  this->getName().c_str(),
+					  this->getName().c_str());
 		// Force disable
+		PyGILState_Release(state);
 		this->disableFilter();
 		return false;
 	}
-	return this->configure();
+
+	// Reload module or Import module ?
+	if (newScript.compare(m_pythonScript) == 0)
+	{
+		// Reimport module
+		PyObject* newModule = PyImport_ReloadModule(m_pModule);
+		if (newModule)
+		{
+			// Cleanup Loaded module
+			Py_CLEAR(m_pModule);
+			m_pModule = NULL;
+			Py_CLEAR(m_pFunc);
+			m_pFunc = NULL;
+
+			// Set new name
+			m_pythonScript = newScript;
+
+			// Set reloaded module
+			m_pModule = newModule;
+		}
+		else
+		{
+			// Errors while reloading the Python module
+			Logger::getLogger()->error("%s filter error while reloading "
+						   " Python script '%s' in 'plugin_reconfigure'",
+						   this->getName().c_str(),
+						   m_pythonScript.c_str());
+			logErrorMessage();
+
+			PyGILState_Release(state);
+
+			return false;
+		}
+	}
+	else
+	{
+		// Import the new module
+
+		// Cleanup Loaded module
+		Py_CLEAR(m_pModule);
+		m_pModule = NULL;
+		Py_CLEAR(m_pFunc);
+		m_pFunc = NULL;
+
+		// Set new name
+		m_pythonScript = newScript;
+
+		// Import the new module
+		PyObject* newModule = PyImport_ImportModule(m_pythonScript.c_str());
+
+		// Set reloaded module
+		m_pModule = newModule;
+	}
+
+	// Set the enable flag
+	if (category.itemExists("enable"))
+	{
+		m_enabled = category.getValue("enable").compare("true") == 0 ||
+				category.getValue("enable").compare("True") == 0;
+	}
+
+	bool ret = this->configure();
+
+	PyGILState_Release(state);
+
+	return ret;
 }
+
 
 /**
  * Configure Python35 filter:
@@ -358,23 +463,56 @@ bool Python35Filter::configure()
 	// NOTE:
 	// Script file name is:
 	// lowercase(categoryName) + _script_ + methodName + ".py"
+	
+	string filterMethod;
+	std::size_t found;
+
+	Logger::getLogger()->debug("%s:%d: m_pythonScript=%s", __FUNCTION__, __LINE__, m_pythonScript.c_str());
 
 	// 1) Get methodName
-	std::size_t found = m_pythonScript.rfind(PYTHON_SCRIPT_METHOD_PREFIX);
-	string filterMethod = m_pythonScript.substr(found + strlen(PYTHON_SCRIPT_METHOD_PREFIX));
+	found = m_pythonScript.rfind(PYTHON_SCRIPT_METHOD_PREFIX);
+	if (found != std::string::npos)
+	{
+		filterMethod = m_pythonScript.substr(found + strlen(PYTHON_SCRIPT_METHOD_PREFIX));
+	}
 	// Remove .py from filterMethod
 	found = filterMethod.rfind(PYTHON_SCRIPT_FILENAME_EXTENSION);
-	filterMethod.replace(found,
-			     strlen(PYTHON_SCRIPT_FILENAME_EXTENSION),
-			     "");
+	if (found != std::string::npos)
+	{
+		filterMethod.replace(found, strlen(PYTHON_SCRIPT_FILENAME_EXTENSION), "");
+	}
 	// Remove .py from pythonScript
 	found = m_pythonScript.rfind(PYTHON_SCRIPT_FILENAME_EXTENSION);
-	m_pythonScript.replace(found,
-			     strlen(PYTHON_SCRIPT_FILENAME_EXTENSION),
-			     "");
+	if (found != std::string::npos)
+	{
+		m_pythonScript.replace(found, strlen(PYTHON_SCRIPT_FILENAME_EXTENSION), "");
+	}
+	
+	Logger::getLogger()->debug("%s filter: script='%s', method='%s'",
+				   this->getName().c_str(),
+				   m_pythonScript.c_str(),
+				   filterMethod.c_str());
 
 	// 2) Import Python script
-	m_pModule = PyImport_ImportModule(m_pythonScript.c_str());
+	// check first method name is empty:
+	// disable filter, cleanup and return true
+	// This allows reconfiguration
+		if (filterMethod.empty())
+	{
+		// Force disable
+		this->disableFilter();
+
+		m_pModule = NULL;
+		m_pFunc = NULL;
+
+		return true;
+	}
+
+	// 2) Import Python script if module object is not set
+	if (!m_pModule)
+	{
+		m_pModule = PyImport_ImportModule(m_pythonScript.c_str());
+	}
 
 	// Check whether the Python module has been imported
 	if (!m_pModule)
@@ -437,17 +575,17 @@ bool Python35Filter::configure()
 	 * We now pass the filter JSON configuration to the loaded module
 	 */
 	PyObject* pConfigFunc = PyObject_GetAttrString(m_pModule,
-						       (char *)string(DEFAULT_FILTER_CONFIG_METHOD).c_str());
+							   (char *)string(DEFAULT_FILTER_CONFIG_METHOD).c_str());
 	// Check whether "set_filter_config" method exists
 	if (PyCallable_Check(pConfigFunc))
 	{
-		// Set configuration object	
+		// Set configuration object 
 		PyObject* pConfig = PyDict_New();
 		// Add JSON configuration, as string, to "config" key
 		PyObject* pConfigObject = PyUnicode_DecodeFSDefault(filterConfiguration.c_str());
 		PyDict_SetItemString(pConfig,
-				     "config",
-				     pConfigObject);
+					 "config",
+					 pConfigObject);
 		Py_CLEAR(pConfigObject);
 		/**
 		 * Call method set_filter_config(c)
@@ -458,14 +596,15 @@ bool Python35Filter::configure()
 		 */
 		//PyObject* pSetConfig = PyObject_CallMethod(pModule,
 		PyObject* pSetConfig = PyObject_CallFunctionObjArgs(pConfigFunc,
-								    // arg 1
-								    pConfig,
-								    // end of args
-								    NULL);
+									// arg 1
+									pConfig,
+									// end of args
+									NULL);
+
 		// Check result
 		if (!pSetConfig ||
-		    !PyBool_Check(pSetConfig) ||
-		    !PyLong_AsLong(pSetConfig))
+			!PyBool_Check(pSetConfig) ||
+			!PyLong_AsLong(pSetConfig))
 		{
 			this->logErrorMessage();
 
